@@ -198,6 +198,12 @@ mod tests {
     }
 
     #[test]
+    fn the_crate_version_is_the_api_version() {
+        let crate_api = format!("{}.{}", env!("CARGO_PKG_VERSION_MAJOR"), env!("CARGO_PKG_VERSION_MINOR"));
+        assert_eq!(crate_api, VERSION.to_string());
+    }
+
+    #[test]
     fn play_answers_read_as_the_documented_json() {
         let pipe: Play =
             serde_json::from_str(r#"{"kind":"pipe","program":"ffmpeg","args":["-ss","{start}"],"rate":48000,"seekable":true}"#).unwrap();

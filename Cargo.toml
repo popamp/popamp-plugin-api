@@ -1,16 +1,20 @@
 [package]
 name = "popamp-plugin-api"
 description = "Types of the calls between Popamp and its plug-ins"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-homepage.workspace = true
+# MAJOR.MINOR follow the API version (VERSION in src/lib.rs); PATCH is
+# for fixes that do not change the calls.
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.89"
+authors = ["Gunyakov <web@gunyakov.pro>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/popamp/popamp-plugin-api"
+homepage = "https://github.com/popamp/popamp"
+keywords = ["popamp", "plugin", "extism", "wasm"]
+categories = ["multimedia::audio", "wasm"]
 
 [dependencies]
-serde.workspace = true
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
-serde_json.workspace = true
+serde_json = "1"
