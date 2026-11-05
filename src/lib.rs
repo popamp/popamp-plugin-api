@@ -17,6 +17,22 @@
 //!
 //! Which locations a source takes is written in its manifest, so the
 //! player can tell without calling it.
+//!
+//! A `dsp` plug-in changes the decoded sound, block by block, and exports:
+//!
+//! | Export | Input | Output |
+//! |---|---|---|
+//! | [`calls::API_VERSION`] | none | [`Version`] |
+//! | [`calls::RESET`] | [`Format`] | none |
+//! | [`calls::PROCESS`] | a block, raw bytes | the block changed, raw bytes |
+//!
+//! `reset` comes before the first block and again when a track starts,
+//! the position jumps or the rate changes: whatever the plug-in keeps
+//! from earlier blocks (a filter's state, a delay line) starts afresh.
+//! A block is interleaved stereo 32-bit float samples, little-endian, of
+//! any length; the answer must be as long. Blocks are not JSON, and
+//! `process` must be quick: one that takes longer than half the block's
+//! playing time is played unchanged, and so is one that fails.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -31,6 +47,8 @@ pub mod calls {
     pub const EXPAND: &str = "expand";
     pub const DESCRIBE: &str = "describe";
     pub const OPEN: &str = "open";
+    pub const RESET: &str = "reset";
+    pub const PROCESS: &str = "process";
 }
 
 /// Names of the functions the player gives plug-ins.
@@ -94,6 +112,25 @@ impl<'de> Deserialize<'de> for Version {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         String::deserialize(d)?.parse().map_err(serde::de::Error::custom)
     }
+}
+
+/// What the blocks a `dsp` plug-in gets next are like.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Format {
+    /// Frames per second. There are always two channels.
+    pub rate: u32,
+}
+
+/// Reads a block of [`calls::PROCESS`]; trailing bytes short of a sample
+/// are dropped.
+pub fn samples_of(bytes: &[u8]) -> Vec<f32> {
+    bytes.as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)).collect()
+}
+
+/// Writes a block of [`calls::PROCESS`].
+pub fn bytes_of(samples: &[f32]) -> Vec<u8> {
+    samples.iter().flat_map(|s| s.to_le_bytes()).collect()
 }
 
 /// One track of a list.
@@ -223,6 +260,16 @@ mod tests {
         let http: Play = serde_json::from_str(r#"{"kind":"http","url":"http://a/b"}"#).unwrap();
         assert_eq!(http, Play::Http { url: "http://a/b".into() });
         assert!(serde_json::from_str::<Play>(r#"{"kind":"http","url":"u","extra":1}"#).is_err());
+    }
+
+    #[test]
+    fn a_block_reads_back_as_written() {
+        let block = [0.5, -1.0, 0.0, 0.25];
+        let bytes = bytes_of(&block);
+        assert_eq!(bytes[..4], 0.5f32.to_le_bytes());
+        assert_eq!(samples_of(&bytes), block);
+        assert_eq!(samples_of(&bytes[..6]), [0.5]);
+        assert_eq!(serde_json::to_string(&Format { rate: 48000 }).unwrap(), r#"{"rate":48000}"#);
     }
 
     #[test]
