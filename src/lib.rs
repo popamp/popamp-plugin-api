@@ -38,6 +38,9 @@ pub mod host {
     /// Runs a program named in the manifest's `exec`: [`super::ExecRequest`]
     /// in, [`super::ExecOutput`] out.
     pub const EXEC: &str = "popamp_exec";
+    /// The time now, as milliseconds since 1970-01-01 UTC: no input, a
+    /// `u64` out. Plug-ins have no clock of their own.
+    pub const NOW: &str = "popamp_now";
 }
 
 /// Keys of the plug-in configuration the player sets, besides the
@@ -194,7 +197,7 @@ mod tests {
         for bad in ["1", "1.x", "", "1.0.0"] {
             assert!(bad.parse::<Version>().is_err(), "{bad}");
         }
-        assert_eq!(serde_json::to_string(&VERSION).unwrap(), r#""1.0""#);
+        assert_eq!(serde_json::to_string(&v("1.0")).unwrap(), r#""1.0""#);
     }
 
     #[test]

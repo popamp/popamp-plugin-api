@@ -13,7 +13,7 @@ the calls and their JSON are in [src/lib.rs](src/lib.rs).
 
 ```toml
 [dependencies]
-popamp-plugin-api = { git = "https://github.com/popamp/popamp-plugin-api", tag = "v1.0.0" }
+popamp-plugin-api = { git = "https://github.com/popamp/popamp-plugin-api", branch = "main" }
 extism-pdk = "1.4"
 ```
 
@@ -41,6 +41,9 @@ The crate's `MAJOR.MINOR` is the API version, `VERSION` in the crate.
 Popamp loads a plug-in built for the same major version and a minor
 version no newer than its own. A patch release fixes the crate without
 changing the calls.
+
+Until Popamp's first release the API stays 1.0 and may still change;
+depend on `branch = "main"`, and your `Cargo.lock` pins the commit.
 
 ## License
 
