@@ -35,6 +35,7 @@
 //! playing time is played unchanged, and so is one that fails.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
@@ -53,8 +54,8 @@ pub mod calls {
 
 /// Names of the functions the player gives plug-ins.
 pub mod host {
-    /// Runs a program named in the manifest's `exec`: [`super::ExecRequest`]
-    /// in, [`super::ExecOutput`] out.
+    /// Runs a command written in the manifest's `exec`:
+    /// [`super::ExecRequest`] in, [`super::ExecOutput`] out.
     pub const EXEC: &str = "popamp_exec";
     /// The time now, as milliseconds since 1970-01-01 UTC: no input, a
     /// `u64` out. Plug-ins have no clock of their own.
@@ -67,10 +68,6 @@ pub mod config {
     /// The user's HTTP proxy, `[user:pass@]host:port`; empty for none.
     pub const PROXY: &str = "popamp.proxy";
 }
-
-/// In an argument of [`Play::Pipe`], replaced by the start position in
-/// seconds (`12.345`) each time the player starts the program.
-pub const START: &str = "{start}";
 
 /// `MAJOR.MINOR`. Minor versions only add calls or optional fields.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,13 +178,15 @@ pub struct Tags {
 pub enum Play {
     /// The player opens the URL like any HTTP stream.
     Http { url: String },
-    /// The player starts `program` (one of the manifest's `exec`) and plays
-    /// what it writes to standard output: interleaved stereo 32-bit float
-    /// samples, little-endian, at `rate`. [`START`] in `args` is replaced
-    /// by the position when the track opens and on every seek.
+    /// The player runs the manifest's `command` with these values and
+    /// plays what it writes to standard output: interleaved stereo 32-bit
+    /// float samples, little-endian, at `rate`. A `{start}` in the command
+    /// is the position, when the track opens and on every seek; it is
+    /// there only if the track is `seekable`.
     Pipe {
-        program: String,
-        args: Vec<String>,
+        command: String,
+        #[serde(default)]
+        vars: BTreeMap<String, String>,
         rate: u32,
         seekable: bool,
         #[serde(default)]
@@ -199,13 +198,16 @@ pub enum Play {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExecRequest {
-    /// A name from the manifest's `exec`, not a path: the player finds it.
-    pub program: String,
-    pub args: Vec<String>,
+    /// The `id` of a command in the manifest's `exec`.
+    pub command: String,
+    /// The values of the command's variables. One left out drops the part
+    /// of the command it is in, if the manifest made that part optional.
+    #[serde(default)]
+    pub vars: BTreeMap<String, String>,
 }
 
-/// Output of [`host::EXEC`]. Asking for a program the manifest does not
-/// name fails the call itself, and counts as the plug-in failing.
+/// Output of [`host::EXEC`]. A command the manifest does not have, or a
+/// value its variable's type refuses, fails the call itself.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExecOutput {
@@ -246,12 +248,12 @@ mod tests {
     #[test]
     fn play_answers_read_as_the_documented_json() {
         let pipe: Play =
-            serde_json::from_str(r#"{"kind":"pipe","program":"ffmpeg","args":["-ss","{start}"],"rate":48000,"seekable":true}"#).unwrap();
+            serde_json::from_str(r#"{"kind":"pipe","command":"play","vars":{"url":"https://a"},"rate":48000,"seekable":true}"#).unwrap();
         assert_eq!(
             pipe,
             Play::Pipe {
-                program: "ffmpeg".into(),
-                args: vec!["-ss".into(), START.into()],
+                command: "play".into(),
+                vars: BTreeMap::from([("url".to_string(), "https://a".to_string())]),
                 rate: 48000,
                 seekable: true,
                 tags: Tags::default()
