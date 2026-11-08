@@ -60,6 +60,15 @@ pub mod host {
     /// The time now, as milliseconds since 1970-01-01 UTC: no input, a
     /// `u64` out. Plug-ins have no clock of their own.
     pub const NOW: &str = "popamp_now";
+    /// An HTTP(S) request to an address of the manifest's `net`:
+    /// [`super::HttpRequest`] in, [`super::HttpResponse`] out.
+    pub const HTTP: &str = "popamp_http";
+    /// What a folder holds: its path as a `String` in, [`super::Listing`]
+    /// out. An empty path lists the folders the user allowed.
+    pub const LIST: &str = "popamp_list";
+    /// A piece of a file in those folders: [`super::ReadRequest`] in,
+    /// [`super::FileData`] out.
+    pub const READ: &str = "popamp_read";
 }
 
 /// Keys of the plug-in configuration the player sets, besides the
@@ -220,6 +229,82 @@ pub struct ExecOutput {
     /// Standard output and error, as text (invalid UTF-8 is replaced).
     pub stdout: String,
     pub stderr: String,
+}
+
+/// Input of [`host::HTTP`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HttpRequest {
+    pub method: String,
+    /// `https://` or `http://`, at an address the manifest lists and the
+    /// user left ticked. A port other than the usual one must be listed too.
+    pub url: String,
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+}
+
+/// Output of [`host::HTTP`]. A redirect is not followed: it comes back as
+/// it is, and going there is a new request, to an address that is listed.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HttpResponse {
+    /// Why there is no answer: the host is not allowed, no connection, an
+    /// answer too long. The other fields are empty then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub status: u16,
+    /// Names in lowercase.
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
+    /// As text (invalid UTF-8 is replaced).
+    #[serde(default)]
+    pub body: String,
+}
+
+/// Output of [`host::LIST`].
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Listing {
+    /// Why the folder cannot be listed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Only what the plug-in may open.
+    #[serde(default)]
+    pub entries: Vec<Entry>,
+}
+
+/// A file or folder of a [`Listing`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Entry {
+    pub path: String,
+    pub folder: bool,
+    /// In bytes; 0 for a folder.
+    pub size: u64,
+}
+
+/// Input of [`host::READ`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadRequest {
+    pub path: String,
+    #[serde(default)]
+    pub offset: u64,
+    /// At most 1 MiB comes back, however many are asked for.
+    pub length: u32,
+}
+
+/// Output of [`host::READ`]; less than was asked for at the end of a file.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileData {
+    /// Why the file cannot be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default)]
+    pub data: Vec<u8>,
 }
 
 #[cfg(test)]
