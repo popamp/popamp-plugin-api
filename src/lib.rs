@@ -33,6 +33,22 @@
 //! any length; the answer must be as long. Blocks are not JSON, and
 //! `process` must be quick: one that takes longer than half the block's
 //! playing time is played unchanged, and so is one that fails.
+//!
+//! A `visual` plug-in draws to the sound with its own WGSL shaders, may
+//! ask for no permissions, and exports:
+//!
+//! | Export | Input | Output |
+//! |---|---|---|
+//! | [`calls::API_VERSION`] | none | [`Version`] |
+//! | [`calls::SCENE`] | none | the scene, JSON |
+//! | [`calls::FRAME`] | the frame's numbers, raw bytes | the scene's `data_bytes` bytes, raw |
+//!
+//! The plug-in says what to draw and the player makes every GPU call; the
+//! scene's fields and the shaders' bindings are in Popamp's
+//! `docs/plugins.md`. `frame` is needed only by a scene with `data_bytes`
+//! above 0, and is called once per frame. Its input is 32-bit
+//! little-endian floats: `time`, `dt`, `width`, `height`, 1024 samples of
+//! the wave, then 512 spectrum levels from 0 (silence) to 1 (full scale).
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -50,6 +66,8 @@ pub mod calls {
     pub const OPEN: &str = "open";
     pub const RESET: &str = "reset";
     pub const PROCESS: &str = "process";
+    pub const SCENE: &str = "scene";
+    pub const FRAME: &str = "frame";
 }
 
 /// Names of the functions the player gives plug-ins.
