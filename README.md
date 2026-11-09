@@ -1,5 +1,12 @@
 # popamp-plugin-api
 
+# ⚠️ This API is under development
+
+## It can change at any time, with no compatibility with older versions
+
+A plug-in that works today may stop loading in a later Popamp. The API
+version stays 1.0 until Popamp 1.0, so it will not warn you of a change.
+
 The types of the calls between [Popamp](https://github.com/popamp/popamp)
 and its plug-ins. The player and plug-ins written in Rust both use this
 crate, so the compiler checks both sides of every call.
