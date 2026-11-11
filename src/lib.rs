@@ -107,8 +107,10 @@ pub mod host {
     /// A piece of a file in those folders: [`super::ReadRequest`] in,
     /// [`super::FileData`] out.
     pub const READ: &str = "popamp_read";
-    /// A piece of the file a decoder plays: [`super::Range`] in,
-    /// [`super::FileData`] out. Only for `decoder` plug-ins.
+    /// A piece of the file a decoder plays: [`super::Range`] in, its
+    /// bytes out, raw, fewer at the end of the file. Only for `decoder`
+    /// plug-ins; for any other, or a file that cannot be read, the call
+    /// fails.
     pub const INPUT: &str = "popamp_input";
 }
 
