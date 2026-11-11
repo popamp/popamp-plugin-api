@@ -3,7 +3,7 @@ name = "popamp-plugin-api"
 description = "Types of the calls between Popamp and its plug-ins"
 # MAJOR.MINOR follow the API version (VERSION in src/lib.rs); PATCH is
 # for fixes that do not change the calls.
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 rust-version = "1.89"
 authors = ["Gunyakov <web@gunyakov.pro>"]

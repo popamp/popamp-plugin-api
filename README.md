@@ -4,8 +4,8 @@
 
 ## It can change at any time, with no compatibility with older versions
 
-A plug-in that works today may stop loading in a later Popamp. The API
-version stays 1.0 until Popamp 1.0, so it will not warn you of a change.
+A plug-in that works today may stop loading in a later Popamp. Until
+Popamp 1.0, a change may come without a new API version to warn you.
 
 The types of the calls between [Popamp](https://github.com/popamp/popamp)
 and its plug-ins. The player and plug-ins written in Rust both use this
@@ -49,8 +49,9 @@ Popamp loads a plug-in built for the same major version and a minor
 version no newer than its own. A patch release fixes the crate without
 changing the calls.
 
-Until Popamp's first release the API stays 1.0 and may still change;
-depend on `branch = "main"`, and your `Cargo.lock` pins the commit.
+Version 1.1 added `decoder` plug-ins. Until Popamp 1.0 the API may still
+change within a version; depend on `branch = "main"`, and your
+`Cargo.lock` pins the commit.
 
 ## License
 

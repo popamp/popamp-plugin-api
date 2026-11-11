@@ -49,6 +49,23 @@
 //! above 0, and is called once per frame. Its input is 32-bit
 //! little-endian floats: `time`, `dt`, `width`, `height`, 1024 samples of
 //! the wave, then 512 spectrum levels from 0 (silence) to 1 (full scale).
+//!
+//! A `decoder` plug-in (API 1.1) plays local files of the extensions its
+//! manifest lists, may ask for no permissions, and exports:
+//!
+//! | Export | Input | Output |
+//! |---|---|---|
+//! | [`calls::API_VERSION`] | none | [`Version`] |
+//! | [`calls::OPEN_FILE`] | [`FileInfo`] | [`Stream`] |
+//! | [`calls::DECODE`] | none | the next block, raw bytes; none at the end |
+//! | [`calls::SEEK`] | the position in ms (`u64`) | the position reached (`u64`) |
+//!
+//! The plug-in reads the one file it was given through [`host::INPUT`],
+//! and no other. Each file played has an instance of its own, so the
+//! plug-in may keep the open file's state in statics; `open_file` comes
+//! first, and an instance that only describes a file gets nothing more.
+//! A block is interleaved stereo 32-bit float samples, little-endian, at
+//! the stream's `rate`, of any length; an empty one ends the track.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -56,7 +73,7 @@ use std::fmt;
 use std::str::FromStr;
 
 /// The API version this crate describes.
-pub const VERSION: Version = Version { major: 1, minor: 0 };
+pub const VERSION: Version = Version { major: 1, minor: 1 };
 
 /// Names of the functions a plug-in exports.
 pub mod calls {
@@ -68,6 +85,9 @@ pub mod calls {
     pub const PROCESS: &str = "process";
     pub const SCENE: &str = "scene";
     pub const FRAME: &str = "frame";
+    pub const OPEN_FILE: &str = "open_file";
+    pub const DECODE: &str = "decode";
+    pub const SEEK: &str = "seek";
 }
 
 /// Names of the functions the player gives plug-ins.
@@ -87,6 +107,9 @@ pub mod host {
     /// A piece of a file in those folders: [`super::ReadRequest`] in,
     /// [`super::FileData`] out.
     pub const READ: &str = "popamp_read";
+    /// A piece of the file a decoder plays: [`super::Range`] in,
+    /// [`super::FileData`] out. Only for `decoder` plug-ins.
+    pub const INPUT: &str = "popamp_input";
 }
 
 /// Keys of the plug-in configuration the player sets, besides the
@@ -325,6 +348,43 @@ pub struct FileData {
     pub data: Vec<u8>,
 }
 
+/// Input of [`calls::OPEN_FILE`]: the file to play, read through
+/// [`host::INPUT`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileInfo {
+    /// Lowercase, without the dot: one of the manifest's extensions.
+    pub extension: String,
+    /// In bytes.
+    pub size: u64,
+}
+
+/// Output of [`calls::OPEN_FILE`].
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Stream {
+    /// Frames per second of the blocks [`calls::DECODE`] gives.
+    pub rate: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub length_ms: Option<u64>,
+    /// True when [`calls::SEEK`] works.
+    #[serde(default)]
+    pub seekable: bool,
+    /// The file's tags and properties: `channels` and `sample_rate` as the
+    /// file has them, `codec` as the player shows it.
+    #[serde(default)]
+    pub tags: Tags,
+}
+
+/// Input of [`host::INPUT`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Range {
+    pub offset: u64,
+    /// At most 1 MiB comes back, however many are asked for.
+    pub length: u32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,6 +435,15 @@ mod tests {
         assert_eq!(samples_of(&bytes), block);
         assert_eq!(samples_of(&bytes[..6]), [0.5]);
         assert_eq!(serde_json::to_string(&Format { rate: 48000 }).unwrap(), r#"{"rate":48000}"#);
+    }
+
+    #[test]
+    fn a_stream_reads_as_the_documented_json() {
+        let s: Stream = serde_json::from_str(r#"{"rate":44100,"length_ms":1000,"seekable":true,"tags":{"codec":"APE"}}"#).unwrap();
+        assert_eq!((s.rate, s.length_ms, s.seekable, s.tags.codec.as_deref()), (44100, Some(1000), true, Some("APE")));
+        assert_eq!(serde_json::from_str::<Stream>(r#"{"rate":8000}"#).unwrap(), Stream { rate: 8000, ..Stream::default() });
+        let info = FileInfo { extension: "ape".into(), size: 10 };
+        assert_eq!(serde_json::to_string(&info).unwrap(), r#"{"extension":"ape","size":10}"#);
     }
 
     #[test]
